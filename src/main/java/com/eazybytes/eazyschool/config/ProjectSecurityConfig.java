@@ -1,5 +1,8 @@
 package com.eazybytes.eazyschool.config;
 
+import com.eazybytes.eazyschool.handlers.CustomAuthenticationFailureHandler;
+import com.eazybytes.eazyschool.handlers.CustomAuthenticationSuccessHandler;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.password.CompromisedPasswordChecker;
@@ -17,14 +20,25 @@ import org.springframework.security.web.authentication.password.HaveIBeenPwnedRe
 @Configuration
 public class ProjectSecurityConfig {
 
+    @Autowired
+    private CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler;
+
+    @Autowired
+    private CustomAuthenticationFailureHandler customAuthenticationFailureHandler;
+
     @Bean
     SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
 
         http.csrf((csrf) -> csrf.disable())
-                .authorizeHttpRequests((requests) -> requests.requestMatchers("/dashboard").permitAll()
+                .authorizeHttpRequests((requests) -> requests.requestMatchers("/dashboard").authenticated()
                         .requestMatchers("/", "/home", "/holidays/**", "/contact", "/saveMsg",
-                                "/courses", "/about", "/assets/**").permitAll())
-                .formLogin(Customizer.withDefaults())
+                                "/courses", "/about", "/assets/**", "/login**").permitAll())
+                .formLogin(formLoginConfig -> formLoginConfig.loginPage("/login")
+                        .defaultSuccessUrl("/dashboard").failureUrl("/login?error=true")
+                        .successHandler(customAuthenticationSuccessHandler)
+                        .failureHandler(customAuthenticationFailureHandler))
+                .logout(loc -> loc.logoutSuccessUrl("/login?logout=true").invalidateHttpSession(true).clearAuthentication(true)
+                        .deleteCookies("JSESSIONID"))
                 .httpBasic(Customizer.withDefaults());
 
         return http.build();
